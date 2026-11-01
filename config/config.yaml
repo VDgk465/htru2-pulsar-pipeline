@@ -1,0 +1,63 @@
+data:
+  url: https://archive.ics.uci.edu/static/public/372/htru2.zip
+  csv_member: HTRU_2.csv
+  cache_path: data/raw/HTRU_2.csv     # downloaded once, then reused
+
+# HTRU_2.csv has no header row; names follow the dataset description.
+columns:
+  - Mean_Integrated_Profile
+  - Std_Integrated_Profile
+  - Excess_Kurtosis_Integrated_Profile
+  - Skewness_Integrated_Profile
+  - Mean_DM_SNR
+  - Std_DM_SNR
+  - Excess_Kurtosis_DM_SNR
+  - Skewness_DM_SNR
+  - Target
+
+target: Target
+valid_labels: [0, 1]
+label_names: {0: Non-pulsar, 1: Pulsar}
+random_state: 42
+test_size: 0.2
+positive_label: 1
+reports_dir: reports
+models_dir: models
+
+validation:
+  min_rows: 10000
+
+model:
+  cv_folds: 5
+  scoring: roc_auc
+  n_jobs: -1                 # use all cores for the grid search
+  class_weight: balanced     # the target is ~9% positive
+  scale_features: false      # Random Forests do not need scaling
+  n_estimators_grid: [50, 100]
+  min_samples_leaf_grid: [1, 5]
+  max_depth_grid: [10, null]
+
+sampling:                    # k-means representative-sample experiment
+  ks: [5, 10, 25]
+  ratio_mode: round          # negative:positive ratio is ~9.9, so round -> 10 (floor -> 9)
+  kmeans_n_init: 10
+
+promotion:                   # gate between a trained candidate and "production"
+  metric: pr_auc
+  min_metric: 0.80
+  min_improvement: 0.0
+
+spark:                       # optional Spark MLlib path (needs Java + pyspark)
+  app_name: htru2-pipeline
+  master: "local[*]"
+  driver_memory: 2g
+  shuffle_partitions: 8
+  cv_folds: 5
+  num_trees_grid: [50, 100]
+  min_instances_grid: [1, 5]
+  max_depth_grid: [10, 30]   # Spark's maximum depth is 30 (stands in for "None")
+  parity_tolerance: 0.05
+
+evaluation:                  # uncertainty of the test-set metrics (bootstrap)
+  bootstrap_samples: 1000
+  confidence: 0.95
